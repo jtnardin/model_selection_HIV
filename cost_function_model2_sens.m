@@ -1,16 +1,18 @@
 function [J,grad] = cost_function_model2_sens(q,qknown,tdata,ydata,ode_solve,h)
 
     
-
     % q = [c,delta]
-    % qknown = [N,n,T0,V0]
+%          1 2  
+    % qknown = [n,p,N,dT,f,k2,Tmax,T0,V0]
+%               1 2 3 4  5 6  7    8  9 
+    %calculate initial condition for Tstar = cV0/(N*delta)
+    T0s = q(1)*qknown(9)/(qknown(3)*q(2));
     
-    %calculate initial condition for Tstar
-    T0s = q(1)*qknown(4)/(qknown(1)*q(2));
-    T0sc = qknown(4)/(qknown(1)*q(2));
-    T0sd = -q(1)*qknown(4)/(qknown(1)*q(2)^2);
+    %T0sc = V0/(Ndelta)
+    T0sc = qknown(9)/(qknown(3)*q(2));
+    T0sd = -q(1)*qknown(9)/(qknown(3)*q(2)^2);
     
-    model0 = [qknown(8);T0s;qknown(4);0;T0sc;0;0;T0sd;0];
+    model0 = [qknown(8);T0s;qknown(9);0;T0sc;0;0;T0sd;0];
     
     switch ode_solve
     

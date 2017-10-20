@@ -3,9 +3,11 @@
 %%% will then check how the choice of step size influences the likelihood
 %%% computation
 
+clear all; clc
+
 load('Viral_data.mat')
 %how do we want to solve ODE;
-ode_solve = 'rk4';
+% ode_solve = 'rk4';
 
 %number of patients
 pnum = length(T);
@@ -29,61 +31,104 @@ Tmax = 1500;
 tdata = t(1:end-1);
 
 
-switch ode_solve
-    
-    case 'forward_euler'
-        
-        %step sizes considered
-        h = [1e-1 1e-2 1e-3 1e-4];
-        
-    case 'rk4'
-        
-        %tolerances considered
-        h = [1e-3 1e-6 1e-9];
-        
-    otherwise
-        
-        error('invalid solver specified')
-        
-end
+for k = 1
+    for l = 1
+
+        %which routine are we using
+        switch k
+
+            case 1
+
+                ode_solve = 'forward_euler';
+                %step sizes considered
+                h = [1e-2 1e-3 1e-4];
+
+            case 2
+
+                ode_solve = 'rk4';
+                %tolerances considered
+                h = [1e-3 1e-6 1e-9 1e-10];
+
+            otherwise
+
+                error('invalid solver specified')
+
+        end
 
 
-%table to be made in latex
-A = struct;
-A.data = zeros(pnum,3*length(h));
+        %table to be made in latex
+        A = struct;
+        A.data = zeros(pnum,3*length(h));
 
 
-tic
-
-for i = 1:pnum
-   
-         
-        ydata = y(1:end-1,i);
-        V0 = ydata(1);
-        T0 = T(i);
-   
-    
-    for j = 1:length(h)
-        
-         
-        qknown = [n,p,N,dT,f,k2,Tmax,T0,V0]';
-        
-        options = optimoptions('fmincon','CheckGradients',false,'SpecifyObjectiveGradient',true,'algorithm','sqp','display','iter');%optimset('algorithm','sqp');%('display','iter');
         tic
-        [q,J] = fmincon(@(q) cost_function_model2_sens(q,qknown,tdata,ydata,ode_solve,h(j))...
-            ,[2 1]',[],[],[],[],[],[],[],options);
+
+        LB = [0 0]';
+        q0 = [28 0.25]';
+
+        for i = 1:pnum
+
+
+                ydata = y(1:end-1,i);
+                V0 = ydata(1);
+                T0 = T(i);
+
+
+            for j = 1:length(h)
+
+
+                qknown = [n,p,N,dT,f,k2,Tmax,T0,V0]';
+
+                
+                switch l
+                    
+                    case 1
+                        options = optimoptions('fmincon','SpecifyObjectiveGradient',false,'algorithm','sqp','display','iter','CheckGradients',false);%optimset('algorithm','sqp');%('display','iter');
+                        tic
+                        [q,J] = fmincon(@(q) cost_function_model2(q,qknown,tdata,ydata,ode_solve,h(j))...
+                            ,q0,[],[],[],[],LB,[],[],options);
+                        toc
+                        
+                        sens_id = '';
+
+                    case 2
+                        options = optimoptions('fmincon','SpecifyObjectiveGradient',true,'algorithm','sqp','display','iter','CheckGradients',false);%optimset('algorithm','sqp');%('display','iter');
+                        tic
+                        [q,J] = fmincon(@(q) cost_function_model2_sens(q,qknown,tdata,ydata,ode_solve,h(j))...
+                            ,q0,[],[],[],[],LB,[],[],options);
+                        toc
+                        
+                        sens_id = 'sens_';
+
+                    otherwise
+                        
+                        error('Invalid l value')
+                        
+                end
+                        
+                A.data(i,3*(j-1)+1:3*(j-1)+2) = q';
+                A.data(i,3*j) = -N/2*(1+log(2*pi)+log(J));
+
+            end
+            i
+        end
+
         toc
 
-        
-        A.data(i,3*(j-1)+1:3*(j-1)+2) = q';
-        A.data(i,3*j) = -N/2*(1+log(2*pi)+log(J));
-        j
-    end
-    i
-end
-   
-toc
+        A.dataFormat = {'%.3f'};
+        A.makeCompleteLatexDocument = 1;
+        text = latexTable(A);
+% 
+        q_text = ' ';
 
-A.dataFormat = {'%.3f'};
-A.makeCompleteLatexDocument = 1;
-latexTable(A);
+        for i = 1:length(text)
+            q_text = [q_text text{i}];
+        end
+
+        fileID = fopen(['model2_' sens_id  'sqp_' ode_solve '2.tex'],'w');
+        fprintf(fileID,'%s',q_text);
+        fclose(fileID)
+
+        
+    end
+end

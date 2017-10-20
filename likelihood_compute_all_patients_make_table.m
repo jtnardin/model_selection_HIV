@@ -55,8 +55,6 @@ load('Viral_data.mat')
 
     LB = [0 0]';
 
-    ind_temp = 3;
-
     for i = 1:pnum
         for j = 1:length(h)
 
